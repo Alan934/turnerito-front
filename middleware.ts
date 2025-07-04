@@ -10,13 +10,11 @@ export default withAuth(
     const ipSent = req.cookies.get('ip_sent');
     if (!ipSent) {
       const ip =
-        req.ip ||
         req.headers.get('x-real-ip') ||
         req.headers.get('x-forwarded-for')?.split(',')[0] ||
         '0.0.0.0';
 
-      // Enviar al backend
-      fetch(process.env.NEXT_PUBLIC_API_URL+'/ip', {
+      fetch(process.env.NEXT_PUBLIC_API_URL + '/ip', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -24,9 +22,8 @@ export default withAuth(
         body: JSON.stringify({ ip }),
       }).catch(console.error);
 
-      // Setear cookie para no volver a enviar
       res.cookies.set('ip_sent', 'true', {
-        maxAge: 60 * 60 * 24, // 1 día
+        maxAge: 60 * 60 * 24,
         path: '/',
       });
     }
@@ -34,7 +31,7 @@ export default withAuth(
     // AUTORIZACIÓN SOLO PARA /medico
     if (
       req.nextUrl.pathname.startsWith('/medico') &&
-      req.nextauth.token?.role !== 'practitioner'
+      (req as any).nextauth.token?.role !== 'practitioner'
     ) {
       return NextResponse.rewrite(
         new URL('/login?message=No tienes permisos para acceder a esta página', req.url)
@@ -51,5 +48,5 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: ['/:path*'], // Aplica a todas las rutas
+  matcher: ['/((?!api|login|_next/static|_next/image|favicon.ico).*)'],
 };
