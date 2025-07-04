@@ -1,44 +1,33 @@
-import { withAuth } from 'next-auth/middleware';
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { withAuth } from "next-auth/middleware";
+import { NextResponse } from "next/server";
 
 export default withAuth(
-  async function middleware(req: NextRequest) {
-    const res = NextResponse.next();
+  async function middleware(req) {
+    // Captura la IP del usuario solo desde los headers
+    const ip =
+      req.headers.get("x-forwarded-for")?.split(",")[0] ||
+      req.headers.get("x-real-ip") ||
+      "127.0.0.1";
 
-    // CAPTURAR IP UNA SOLA VEZ POR SESIÓN
-    const ipSent = req.cookies.get('ip_sent');
-    if (!ipSent) {
-      const ip =
-        req.headers.get('x-real-ip') ||
-        req.headers.get('x-forwarded-for')?.split(',')[0] ||
-        '0.0.0.0';
+    // Envía la IP al backend (no esperes la respuesta para no bloquear el flujo)
+    fetch("https://api-full-salud.vercel.app/api/ip", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ip }),
+    }).catch(() => {});
 
-      fetch(process.env.NEXT_PUBLIC_API_URL + '/ip', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ ip }),
-      }).catch(console.error);
-
-      res.cookies.set('ip_sent', 'true', {
-        maxAge: 60 * 60 * 24,
-        path: '/',
-      });
-    }
-
-    // AUTORIZACIÓN SOLO PARA /medico
+    // Lógica de autorización
     if (
-      req.nextUrl.pathname.startsWith('/medico') &&
-      (req as any).nextauth.token?.role !== 'practitioner'
+      req.nextUrl.pathname.startsWith("/medico") &&
+      req.nextauth.token?.role !== "practitioner"
     ) {
       return NextResponse.rewrite(
-        new URL('/login?message=No tienes permisos para acceder a esta página', req.url)
+        new URL(
+          "/login?message=No tienes permisos para acceder a esta página",
+          req.url
+        )
       );
     }
-
-    return res;
   },
   {
     callbacks: {
@@ -48,5 +37,5 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: ['/((?!api|login|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ["/medico/:path*"],
 };
